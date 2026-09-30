@@ -1,0 +1,19 @@
+{
+  "name": "Kaffeloggen",
+  "short_name": "Kaffe",
+  "description": "Skanna, smaka och minns ditt kaffe.",
+  "lang": "sv",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#f2eadb",
+  "theme_color": "#f2eadb",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
