@@ -97,7 +97,14 @@ h1 em { color: var(--coral); font-weight: inherit; }
 .message.success, .message.info { background: #e5e9dc; border-color: var(--sage); }
 .message.error { background: #f5dfd8; border-color: var(--coral); }
 
-.form-page, .history-page { padding-top: 42px; padding-bottom: 100px; max-width: 900px; margin: 0 auto; }
+.passkey-prompt { margin: 28px 0 0; padding: 22px 25px; border: 1px solid var(--brown); background: #e5e9dc; display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 20px; }
+.passkey-prompt .eyebrow { margin-bottom: 4px; }
+.passkey-prompt h2 { margin: 0 0 4px; font-size: 23px; }
+.passkey-prompt p { margin: 0; color: var(--muted); font-size: 13px; }
+.passkey-icon, .passkey-list-icon { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--brown); color: var(--paper); }
+.passkey-icon svg, .passkey-list-icon svg, .passkey-login svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.form-page, .history-page, .account-page { padding-top: 42px; padding-bottom: 100px; max-width: 900px; margin: 0 auto; }
 .back-button { margin-bottom: 44px; }
 .form-intro { margin-bottom: 46px; }
 .form-intro h1 { margin-bottom: 15px; }
@@ -126,6 +133,26 @@ input::placeholder, textarea::placeholder { color: #a8998f; }
 .history-header { display: flex; align-items: end; justify-content: space-between; gap: 25px; margin-bottom: 46px; }
 .history-header h1 { margin-bottom: 12px; }
 .full-list .coffee-card { padding: 24px 0; }
+.account-page { max-width: 760px; }
+.account-header { margin-bottom: 38px; }
+.account-header h1 { font-size: clamp(43px, 7vw, 66px); line-height: 1; letter-spacing: -.045em; margin-bottom: 14px; }
+.account-header p { color: var(--muted); }
+.account-card { border: 1px solid var(--line); background: var(--paper); padding: clamp(23px, 5vw, 42px); }
+.account-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 25px; padding-bottom: 25px; border-bottom: 1px solid var(--line); }
+.account-section-heading h2 { margin: 0 0 6px; font-size: 28px; }
+.account-section-heading p { color: var(--muted); font-size: 13px; margin: 0; }
+.passkey-list { margin: 0; padding: 0; list-style: none; }
+.passkey-list li { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 15px; padding: 20px 0; border-bottom: 1px solid var(--line); }
+.passkey-list li:last-child { border-bottom: 0; }
+.passkey-list-icon { background: var(--ochre); color: var(--brown); }
+.passkey-list strong, .passkey-list span { display: block; }
+.passkey-list span { color: var(--muted); font-size: 11px; margin-top: 5px; }
+.delete-button { min-height: 44px; border: 0; border-bottom: 1px solid currentColor; background: transparent; color: var(--coral); font-weight: 700; cursor: pointer; }
+.delete-button:disabled { opacity: .5; cursor: wait; }
+.no-passkeys { text-align: center; border: 1px dashed #b9a99a; padding: 30px; margin-top: 24px; }
+.no-passkeys p { font-family: "Fraunces", Georgia, serif; font-size: 20px; margin-bottom: 5px; }
+.no-passkeys span, .muted { color: var(--muted); font-size: 13px; }
+.sign-out { color: var(--coral); margin-top: 28px; }
 
 .overlay { position: fixed; inset: 0; background: rgba(43,29,24,.76); backdrop-filter: blur(5px); z-index: 50; display: grid; place-items: center; padding: 18px; }
 .scanner-sheet { background: var(--paper); width: min(560px, 100%); max-height: calc(100vh - 36px); overflow-y: auto; padding: 26px; box-shadow: 0 24px 80px rgba(0,0,0,.3); }
@@ -151,6 +178,9 @@ input::placeholder, textarea::placeholder { color: #a8998f; }
 .login-card > p { color: var(--muted); margin-bottom: 26px; }
 .login-card form { display: grid; gap: 10px; }
 .login-card form .button { margin-top: 7px; }
+.passkey-login { width: 100%; }
+.login-divider { display: flex; align-items: center; gap: 13px; color: var(--muted); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; margin: 22px 0 18px; }
+.login-divider::before, .login-divider::after { content: ""; height: 1px; background: var(--line); flex: 1; }
 .login-illustration { position: absolute; right: -32px; top: -42px; width: 84px; height: 84px; border-radius: 50%; background: var(--coral); display: grid; place-items: center; transform: rotate(8deg); }
 .login-illustration span { font-size: 36px; filter: grayscale(1) brightness(3); }
 .login-footer { align-self: end; margin: 20px 0 0; color: var(--muted); font-family: "Fraunces", Georgia, serif; font-style: italic; }
@@ -175,6 +205,8 @@ input::placeholder, textarea::placeholder { color: #a8998f; }
   .dashboard-grid { grid-template-columns: 1fr; gap: 35px; padding-top: 45px; }
   .stats-card { min-height: 320px; }
   .history-header { align-items: start; flex-direction: column; }
+  .passkey-prompt { grid-template-columns: 50px 1fr; }
+  .passkey-prompt .button { grid-column: 1 / -1; width: 100%; }
   .bottom-nav { position: fixed; z-index: 30; bottom: 0; left: 0; right: 0; height: calc(70px + env(safe-area-inset-bottom)); padding: 8px 16px env(safe-area-inset-bottom); display: grid; grid-template-columns: 1fr 84px 1fr; align-items: center; background: var(--paper); border-top: 1px solid var(--line); }
   .bottom-nav button { border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; font-weight: 700; color: var(--muted); }
   .bottom-nav svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
@@ -199,7 +231,12 @@ input::placeholder, textarea::placeholder { color: #a8998f; }
   .field-grid .wide { grid-column: auto; }
   .coffee-form { margin-left: -8px; margin-right: -8px; }
   .form-page { padding-top: 28px; }
-  .form-intro h1, .history-header h1 { font-size: 47px; }
+  .form-intro h1, .history-header h1, .account-header h1 { font-size: 47px; }
+  .account-section-heading { align-items: stretch; flex-direction: column; }
+  .account-section-heading .button { width: 100%; }
+  .passkey-list li { grid-template-columns: 46px 1fr; }
+  .passkey-list-icon { width: 46px; height: 46px; }
+  .delete-button { grid-column: 2; justify-self: start; }
   .scanner-sheet { padding: 18px; }
   .manual-code > div { grid-template-columns: 1fr; gap: 8px; }
   .login-page { padding-top: 24px; }

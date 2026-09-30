@@ -1,11 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
+import type { PasskeyListItem, Session } from "@supabase/supabase-js";
 import { formatDate, stars, toCsv } from "./helpers";
 import { supabase, type Tasting } from "./supabase";
 
 const Scanner = lazy(() => import("./Scanner"));
 
-type View = "home" | "new" | "history";
+type View = "home" | "new" | "history" | "account";
 type FormState = {
   ean: string;
   roaster: string;
@@ -38,6 +38,10 @@ function App() {
   const [knownProductId, setKnownProductId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [passkeys, setPasskeys] = useState<PasskeyListItem[] | null>(null);
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [passkeyMessage, setPasskeyMessage] = useState("");
+  const passkeySupported = window.isSecureContext && "PublicKeyCredential" in window;
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -65,6 +69,21 @@ function App() {
   useEffect(() => {
     if (session) loadTastings();
   }, [session, loadTastings]);
+
+  const loadPasskeys = useCallback(async () => {
+    const { data, error } = await supabase.auth.passkey.list();
+    if (error) {
+      setPasskeyMessage("Kunde inte hämta dina passkeys.");
+      return false;
+    }
+    setPasskeys(data);
+    return true;
+  }, []);
+
+  useEffect(() => {
+    if (session) loadPasskeys();
+    else setPasskeys(null);
+  }, [session, loadPasskeys]);
 
   const average = useMemo(
     () => tastings.length ? (tastings.reduce((sum, item) => sum + item.rating, 0) / tastings.length).toFixed(1) : "–",
@@ -184,6 +203,28 @@ function App() {
     URL.revokeObjectURL(link.href);
   }
 
+  async function registerPasskey() {
+    setPasskeyBusy(true);
+    setPasskeyMessage("");
+    const { error } = await supabase.auth.registerPasskey();
+    setPasskeyBusy(false);
+    if (error) {
+      setPasskeyMessage(error.code === "webauthn_credential_exists" ? "Den här passkeyn är redan registrerad." : "Registreringen avbröts eller misslyckades.");
+      return;
+    }
+    if (await loadPasskeys()) setPasskeyMessage("Passkey skapad – nästa inloggning går utan e-post.");
+  }
+
+  async function deletePasskey(passkeyId: string) {
+    if (!window.confirm("Ta bort denna passkey? Du kan fortfarande logga in via e-post.")) return;
+    setPasskeyBusy(true);
+    setPasskeyMessage("");
+    const { error } = await supabase.auth.passkey.delete({ passkeyId });
+    setPasskeyBusy(false);
+    if (error) return setPasskeyMessage("Passkeyn kunde inte tas bort.");
+    if (await loadPasskeys()) setPasskeyMessage("Passkeyn är borttagen.");
+  }
+
   if (!authReady) return <div className="loading-page"><span className="bean-loader">●</span></div>;
   if (!session) return <Login />;
 
@@ -193,7 +234,7 @@ function App() {
         <button className="wordmark" onClick={() => setView("home")}>KAFFE<span>•</span>LOGGEN</button>
         <div className="top-actions">
           <button className="text-button" onClick={exportCsv} disabled={!tastings.length}>Exportera CSV</button>
-          <button className="avatar" onClick={() => supabase.auth.signOut()} aria-label="Logga ut">
+          <button className="avatar" onClick={() => setView("account")} aria-label="Öppna konto">
             {session.user.email?.slice(0, 1).toUpperCase() ?? "K"}
           </button>
         </div>
@@ -224,6 +265,15 @@ function App() {
             </section>
 
             {message && <p className="message success">{message}</p>}
+
+            {passkeySupported && passkeys?.length === 0 && (
+              <section className="passkey-prompt">
+                <div className="passkey-icon" aria-hidden="true"><Icon name="key" /></div>
+                <div><span className="eyebrow">Snabbare nästa gång</span><h2>Logga in med Face ID eller passkey</h2><p>Skapa en passkey på den här enheten. E-post finns kvar som reserv.</p></div>
+                <button className="button secondary" onClick={registerPasskey} disabled={passkeyBusy}>{passkeyBusy ? "Öppnar …" : "Skapa passkey"}</button>
+              </section>
+            )}
+            {passkeyMessage && <p className="message info" role="status">{passkeyMessage}</p>}
 
             <section className="dashboard-grid">
               <div className="recent-section">
@@ -289,6 +339,23 @@ function App() {
             <div className="coffee-list full-list">{tastings.map((item, index) => <CoffeeCard key={item.id} item={item} index={index} />)}</div>
           </section>
         )}
+
+        {view === "account" && (
+          <AccountPage
+            email={session.user.email ?? ""}
+            passkeys={passkeys}
+            passkeySupported={passkeySupported}
+            busy={passkeyBusy}
+            message={passkeyMessage}
+            onBack={() => setView("home")}
+            onRegister={registerPasskey}
+            onDelete={deletePasskey}
+            onSignOut={() => {
+              setView("home");
+              supabase.auth.signOut();
+            }}
+          />
+        )}
       </main>
 
       <nav className="bottom-nav" aria-label="Huvudmeny">
@@ -305,14 +372,23 @@ function App() {
 function Login() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"email" | "passkey" | null>(null);
+  const passkeySupported = window.isSecureContext && "PublicKeyCredential" in window;
 
   async function login(event: React.FormEvent) {
     event.preventDefault();
-    setBusy(true);
+    setBusy("email");
     const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href.split("#")[0] } });
-    setBusy(false);
+    setBusy(null);
     setMessage(error ? "Inloggningen misslyckades. Kontrollera adressen." : "Klart! Öppna länken vi skickade till din e-post.");
+  }
+
+  async function loginWithPasskey() {
+    setBusy("passkey");
+    setMessage("");
+    const { error } = await supabase.auth.signInWithPasskey();
+    setBusy(null);
+    if (error) setMessage("Passkey-inloggningen avbröts eller misslyckades. Prova igen eller använd e-post.");
   }
 
   return (
@@ -322,16 +398,65 @@ function Login() {
         <div className="login-illustration" aria-hidden="true"><span>☕</span></div>
         <span className="eyebrow">Välkommen in</span>
         <h1>Din bästa kopp<br />är värd att <em>minnas.</em></h1>
-        <p>Logga in med e-post. Inget lösenord behövs.</p>
+        <p>Logga in med en passkey – eller använd e-post första gången.</p>
+        {passkeySupported && (
+          <button className="button primary passkey-login" onClick={loginWithPasskey} disabled={busy !== null}>
+            <Icon name="key" /> {busy === "passkey" ? "Öppnar …" : "Logga in med passkey"}
+          </button>
+        )}
+        <div className="login-divider"><span>eller med e-post</span></div>
         <form onSubmit={login}>
           <label htmlFor="email">E-postadress</label>
           <input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="du@exempel.se" />
-          <button className="button primary" disabled={busy}>{busy ? "Skickar …" : "Skicka inloggningslänk"}</button>
+          <button className="button secondary" disabled={busy !== null}>{busy === "email" ? "Skickar …" : "Skicka inloggningslänk"}</button>
         </form>
-        {message && <p className="message info">{message}</p>}
+        {message && <p className={`message ${message.startsWith("Klart") ? "info" : "error"}`} role="status">{message}</p>}
       </section>
       <p className="login-footer">Skannat, smakat, sparat.</p>
     </main>
+  );
+}
+
+function AccountPage({ email, passkeys, passkeySupported, busy, message, onBack, onRegister, onDelete, onSignOut }: {
+  email: string;
+  passkeys: PasskeyListItem[] | null;
+  passkeySupported: boolean;
+  busy: boolean;
+  message: string;
+  onBack: () => void;
+  onRegister: () => void;
+  onDelete: (id: string) => void;
+  onSignOut: () => void;
+}) {
+  return (
+    <section className="account-page" aria-labelledby="account-title">
+      <button className="back-button" onClick={onBack}>← Tillbaka</button>
+      <div className="account-header">
+        <span className="eyebrow">Ditt konto</span>
+        <h1 id="account-title">Inloggning och säkerhet</h1>
+        <p>{email}</p>
+      </div>
+      <section className="account-card">
+        <div className="account-section-heading">
+          <div><h2>Passkeys</h2><p>Logga in med Face ID, fingeravtryck eller enhetens kod.</p></div>
+          <button className="button secondary" onClick={onRegister} disabled={busy || !passkeySupported}>{busy ? "Vänta …" : "+ Lägg till"}</button>
+        </div>
+        {!passkeySupported && <p className="message error">Den här webbläsaren kan inte skapa passkeys. Du kan fortfarande hantera befintliga nycklar.</p>}
+        {passkeys === null ? <p className="muted">Hämtar passkeys …</p> : passkeys.length ? (
+          <ul className="passkey-list">
+            {passkeys.map((passkey) => (
+              <li key={passkey.id}>
+                <div className="passkey-list-icon"><Icon name="key" /></div>
+                <div><strong>{passkey.friendly_name || "Passkey"}</strong><span>Skapad {formatDate(passkey.created_at.slice(0, 10))}{passkey.last_used_at ? ` · Senast använd ${formatDate(passkey.last_used_at.slice(0, 10))}` : ""}</span></div>
+                <button className="delete-button" onClick={() => onDelete(passkey.id)} disabled={busy}>Ta bort</button>
+              </li>
+            ))}
+          </ul>
+        ) : <div className="no-passkeys"><p>Du har ingen passkey ännu.</p><span>E-postinloggningen fortsätter fungera som vanligt.</span></div>}
+        {message && <p className="message info" role="status">{message}</p>}
+      </section>
+      <button className="text-button sign-out" onClick={onSignOut}>Logga ut</button>
+    </section>
   );
 }
 
@@ -347,9 +472,10 @@ function CoffeeCard({ item, index }: { item: Tasting; index: number }) {
   );
 }
 
-function Icon({ name }: { name: "scan" | "home" | "list" }) {
+function Icon({ name }: { name: "scan" | "home" | "list" | "key" }) {
   if (name === "home") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8v9a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" /></svg>;
   if (name === "list") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>;
+  if (name === "key") return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="4" /><path d="M12 12h9M17 12v3M20 12v2" /></svg>;
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M8 9v6M11 8v8M14 9v6M17 8v8" /></svg>;
 }
 
